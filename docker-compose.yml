@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  db:
+    image: sqlite:latest
+    volumes:
+      - ./data:/data
+    environment:
+      - SQLITE_DATABASE=food_scale.db
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+
+  food_data_collector:
+    build: .
+    volumes:
+      - ./data:/app/data
+      - .env:/app/.env
+    environment:
+      - USDA_API_KEY=${USDA_API_KEY}
+      - OPENFOODFACTS_API_KEY=${OPENFOODFACTS_API_KEY}
+    restart: unless-stopped
+
+  tests:
+    build: .
+    command: pytest tests/ --cov=data_collection
+    volumes:
+      - ./data:/app/data
+      - .env:/app/.env
+    environment:
+      - USDA_API_KEY=${USDA_API_KEY}
+      - OPENFOODFACTS_API_KEY=${OPENFOODFACTS_API_KEY}
+
+volumes:
+  prometheus_data:
+  grafana_data: 
